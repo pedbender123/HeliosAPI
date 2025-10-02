@@ -1,0 +1,22 @@
+# docker-compose.yml (versão modificada)
+version: '3.8'
+
+services:
+  helios-bot:
+    build: .
+    container_name: helios-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+
+  log-monitor:
+    build:
+      context: ./log_monitor
+    container_name: helios-log-monitor
+    restart: unless-stopped
+    # Montamos o socket do Docker para que o monitor possa ler os logs
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Garante que o bot inicie antes do monitor
+    depends_on:
+      - helios-bot
