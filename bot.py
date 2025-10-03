@@ -35,6 +35,13 @@ async def on_ready():
     """
     Função chamada quando o bot se conecta com sucesso ao Discord.
     """
+    print('-----------------------------------------')
+    print('--- INICIANDO DIAGNÓSTICO DE WEBHOCKS ---')
+    print(f"  URL de Teste carregada: {N8N_WEBHOOK_URL_TEST}")
+    print(f"  URL de Produção carregada: {N8N_WEBHOOK_URL_PROD}")
+    print(f'--- FIM DO DIAGNÓSTICO ---')
+    print('-----------------------------------------')
+    
     print(f'Bot Helios conectado como {client.user}')
     print(f'Monitorando o servidor com ID: {TARGET_SERVER_ID}')
     if not WEBHOOK_URLS:
