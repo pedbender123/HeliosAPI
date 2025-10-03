@@ -2,108 +2,119 @@ import discord
 import os
 import requests
 from dotenv import load_dotenv
+import threading
+import asyncio
+from flask import Flask, request, jsonify
 
-# Carregar variáveis de ambiente do arquivo .env
+# ===============================================
+# SEÇÃO DE CONFIGURAÇÃO
+# ===============================================
 load_dotenv()
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 TARGET_SERVER_ID = int(os.getenv('DISCORD_SERVER_ID'))
-
-# Carregar as duas URLs de webhook
 N8N_WEBHOOK_URL_TEST = os.getenv('N8N_WEBHOOK_URL_TEST')
 N8N_WEBHOOK_URL_PROD = os.getenv('N8N_WEBHOOK_URL_PROD')
 
-# Criar uma lista com os webhooks que devem ser notificados
-# O bot vai ignorar qualquer URL que não for encontrada no .env
 WEBHOOK_URLS = [
     url for url in [N8N_WEBHOOK_URL_TEST, N8N_WEBHOOK_URL_PROD] if url
 ]
 
-
-# Definir as permissões (intents) que o bot precisa
+# ===============================================
+# SEÇÃO DO BOT DISCORD (discord.py)
+# ===============================================
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
 intents.members = True
-intents.message_content = True # Essencial para ler o conteúdo das mensagens
+intents.message_content = True
 
-# Criar a instância do cliente do bot
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    """
-    Função chamada quando o bot se conecta com sucesso ao Discord.
-    """
     print('-----------------------------------------')
-    print('--- INICIANDO DIAGNÓSTICO DE WEBHOCKS ---')
-    print(f"  URL de Teste carregada: {N8N_WEBHOOK_URL_TEST}")
-    print(f"  URL de Produção carregada: {N8N_WEBHOOK_URL_PROD}")
-    print(f'--- FIM DO DIAGNÓSTICO ---')
-    print('-----------------------------------------')
-    
     print(f'Bot Helios conectado como {client.user}')
     print(f'Monitorando o servidor com ID: {TARGET_SERVER_ID}')
-    if not WEBHOOK_URLS:
-        print('AVISO: Nenhuma URL de webhook foi configurada no arquivo .env!')
-    else:
-        print(f'Enviando notificações para {len(WEBHOOK_URLS)} webhook(s).')
     print('-----------------------------------------')
 
 @client.event
 async def on_message(message):
-    """
-    Função chamada para cada nova mensagem em qualquer canal que o bot tem acesso.
-    """
-    # 1. Ignorar mensagens do próprio bot
-    if message.author == client.user:
+    if message.author == client.user or not message.guild or message.guild.id != TARGET_SERVER_ID:
         return
 
-    # 2. Verificar se a mensagem veio de um servidor (ignorar DMs)
-    if not message.guild:
-        return
+    print(f"Nova mensagem de '{message.author.name}' detectada no canal #{message.channel.name}")
 
-    # 3. Verificar se a mensagem é do servidor correto (PBPM)
-    if message.guild.id != TARGET_SERVER_ID:
-        return
-
-    # Se todas as verificações passaram, preparamos os dados para o n8n
-    print(f"Nova mensagem detectada no servidor {message.guild.name} no canal #{message.channel.name}")
-
-    # Extrair os nomes dos cargos do membro
-    member_roles = [role.name for role in message.author.roles]
-
-    # Montar o payload (dados a serem enviados) em formato JSON
     payload = {
-        "chat": {
-            "id": message.channel.id,
-            "name": message.channel.name
-        },
-        "member": {
-            "id": message.author.id,
-            "name": message.author.name,
-            "displayName": message.author.display_name,
-            "roles": member_roles
-        },
-        "message": {
-            "id": message.id,
-            "text": message.content
-        }
+        "chat": {"id": str(message.channel.id), "name": message.channel.name},
+        "member": {"id": str(message.author.id), "name": message.author.name, "displayName": message.author.display_name, "roles": [role.name for role in message.author.roles]},
+        "message": {"id": str(message.id), "text": message.content}
     }
 
-    # Enviar a notificação para CADA webhook na nossa lista
     for url in WEBHOOK_URLS:
         try:
-            response = requests.post(url, json=payload, timeout=10)
-            # Levanta um erro se a requisição falhou (status code 4xx ou 5xx)
-            response.raise_for_status()
-            print(f"Mensagem de '{message.author.name}' enviada para {url} com sucesso! Status: {response.status_code}")
+            requests.post(url, json=payload, timeout=10).raise_for_status()
+            print(f"  -> Webhook enviado para {url}")
         except requests.exceptions.RequestException as e:
-            print(f"ERRO: Falha ao enviar a mensagem para {url}. Erro: {e}")
-
+            print(f"  -> ERRO ao enviar para {url}: {e}")
     print('-----------------------------------------')
 
+# Função assíncrona para enviar mensagens, para ser chamada pelo Flask
+async def send_discord_message(channel_id, message_content):
+    try:
+        channel = client.get_channel(int(channel_id))
+        if channel:
+            await channel.send(message_content)
+            return True
+        else:
+            print(f"ERRO: Canal com ID {channel_id} não encontrado.")
+            return False
+    except Exception as e:
+        print(f"ERRO ao tentar enviar mensagem para o canal {channel_id}: {e}")
+        return False
 
-# Iniciar o bot usando o token
-print("Iniciando o bot Helios...")
-client.run(DISCORD_BOT_TOKEN)
+# ===============================================
+# SEÇÃO DO SERVIDOR WEB (Flask)
+# ===============================================
+app = Flask(__name__)
+
+@app.route('/send-reply', methods=['POST'])
+def send_reply():
+    data = request.get_json()
+    channel_id = data.get('channel_id')
+    message = data.get('message')
+
+    if not channel_id or not message:
+        return jsonify({"status": "error", "message": "channel_id e message são obrigatórios"}), 400
+
+    # Como o Flask roda numa thread separada, precisamos de uma forma segura
+    # de chamar a função assíncrona do bot. Usamos run_coroutine_threadsafe.
+    future = asyncio.run_coroutine_threadsafe(send_discord_message(channel_id, message), client.loop)
+    
+    try:
+        # Espera pelo resultado (opcional, mas bom para ter a certeza)
+        result = future.result(timeout=10) 
+        if result:
+            return jsonify({"status": "success", "message": "Mensagem enviada com sucesso!"})
+        else:
+            return jsonify({"status": "error", "message": "Falha ao enviar a mensagem."}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Erro interno: {e}"}), 500
+
+
+def run_flask_app():
+    # O servidor Flask vai rodar na porta 5002 DENTRO do contentor
+    app.run(host='0.0.0.0', port=5002)
+
+# ===============================================
+# INICIALIZAÇÃO
+# ===============================================
+if __name__ == "__main__":
+    # Inicia o servidor Flask numa thread separada para não bloquear o bot
+    flask_thread = threading.Thread(target=run_flask_app)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # Inicia o bot do Discord
+    print("Iniciando o bot Helios e o servidor de API...")
+    client.run(DISCORD_BOT_TOKEN)
