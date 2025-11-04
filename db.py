@@ -83,4 +83,4 @@ def log_error_to_db(vps_name, container_name, raw_log, ai_summary=""):
         return None
     finally:
         cursor.close()
-        conn.close()
+        conn.close()#gsgsgsg

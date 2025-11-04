@@ -22,7 +22,7 @@ def get_error_summary(raw_log: str) -> str:
     print("Enviando log para análise da IA...")
     try:
         completion = client.chat.completions.create(
-            # Aqui está o modelo específico que você pediu:
+            #isiisisii
             model="codestral:latest", 
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},

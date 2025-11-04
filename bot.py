@@ -99,7 +99,7 @@ def receive_message():
     embed.set_footer(text=f"Servidor: {remetente} | Container: {container_name}")
     embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
 
-    # 5. Enviar para o Discord (de forma segura entre threads)
+    # 5. Enviar para o Discord (de forma segura entre
     future = asyncio.run_coroutine_threadsafe(send_error_report(embed), client.loop)
     future.result(timeout=10) # Espera o envio ser concluído
 
