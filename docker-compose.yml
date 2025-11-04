@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  helios:
+    build: .
+    container_name: helios-central
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Expõe a porta 5002 para o mundo (para os 'vps-log-agent' acessarem)
+      # O seu proxy reverso (Nginx/Traefik) deve apontar helios.pbpmdev.com para esta porta.
+      - "5002:5002"
+    networks:
+      - helios-net # Mantemos a rede, caso seu Codestral/Ollama esteja em outro container
+
+networks:
+  helios-net:
+    driver: bridge

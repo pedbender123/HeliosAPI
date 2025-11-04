@@ -1,0 +1,6 @@
+discord.py
+python-dotenv
+requests
+Flask
+mysql-connector-python  # Para o MySQL
+openai                  # Para conectar no Codestral (via API compatível)

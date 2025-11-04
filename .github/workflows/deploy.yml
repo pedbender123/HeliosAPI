@@ -1,0 +1,49 @@
+name: Deploy Helios Central na VPS
+
+# Isso "escuta" por pushes na sua branch principal (geralmente 'main' ou 'master')
+on:
+  push:
+    branches:
+      - main  # Mude aqui se sua branch principal tiver outro nome
+
+jobs:
+  deploy:
+    # A "máquina" que o GitHub vai usar para rodar os comandos
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Baixa o seu código para a máquina do GitHub
+    - name: 1. Checkout do Código
+      uses: actions/checkout@v3
+
+    # 2. Conecta na sua VPS via SSH e roda os comandos de deploy
+    - name: 2. SSH e Deploy na VPS
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_SSH_HOST }}        # Seu IP da VPS
+        username: ${{ secrets.VPS_SSH_USERNAME }}  # Seu usuário (ex: 'root')
+        key: ${{ secrets.VPS_SSH_KEY }}         # Sua chave SSH privada
+        port: 22                                # Porta SSH (mude se não for 22)
+        
+        # Script que vai rodar DENTRO da sua VPS
+        script: |
+          # 1. Entra na pasta do seu projeto na VPS
+          cd ${{ secrets.VPS_PROJECT_PATH }}
+          
+          # 2. Puxa as atualizações do GitHub (ignora o .env que já está lá)
+          echo "Puxando atualizações do Git..."
+          git pull origin main
+          
+          # 3. Para os serviços atuais
+          echo "Parando serviços antigos..."
+          docker-compose down
+          
+          # 4. Reconstrói a imagem (se o Dockerfile mudou) e inicia o novo container
+          echo "Construindo e iniciando novos containers..."
+          docker-compose up --build -d
+          
+          # 5. (Opcional) Limpa imagens docker antigas que não são mais usadas
+          echo "Limpando imagens docker antigas..."
+          docker image prune -f
+          
+          echo "Deploy concluído com sucesso!"
