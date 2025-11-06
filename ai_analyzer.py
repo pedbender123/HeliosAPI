@@ -1,11 +1,11 @@
 import os
 from openai import OpenAI
 
-# Configura o cliente da OpenAI para apontar para o seu Codestral/Ollama
-client = OpenAI(
-    base_url=os.getenv('CODESTRAL_API_URL'),
-    api_key=os.getenv('CODESTRAL_API_KEY'),
-)
+# --- MUDANÇA AQUI ---
+# Removemos a configuração de 'base_url' e 'api_key' do Ollama.
+# O cliente agora vai ler a variável 'OPENAI_API_KEY' do ambiente.
+client = OpenAI()
+# A API key será lida automaticamente de os.getenv('OPENAI_API_KEY')
 
 SYSTEM_PROMPT = """
 Você é um Gerente de SRE (Site Reliability Engineering) sênior.
@@ -18,12 +18,14 @@ O relatório deve conter:
 """
 
 def get_error_summary(raw_log: str) -> str:
-    """Usa o Codestral para analisar um log de erro e gerar um resumo."""
-    print("Enviando log para análise da IA...")
+    """Usa o GPT-4o-mini para analisar um log de erro e gerar um resumo."""
+    print("Enviando log para análise da OpenAI (GPT-4o-mini)...")
     try:
         completion = client.chat.completions.create(
-            #isiisisii
-            model="codestral:latest", 
+            
+            # --- MUDANÇA AQUI ---
+            model="gpt-4o-mini", # Alterado de "codestral:latest"
+            
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Analise o seguinte log de erro:\n\n```{raw_log}```"}
@@ -34,5 +36,6 @@ def get_error_summary(raw_log: str) -> str:
         print("Resumo da IA recebido.")
         return summary
     except Exception as e:
-        print(f"Falha ao contatar a IA (Codestral em {os.getenv('CODESTRAL_API_URL')}): {e}")
-        return "Falha ao analisar o log com a IA. Verifique o log bruto."
+        # --- MUDANÇA AQUI ---
+        print(f"Falha ao contatar a API da OpenAI: {e}")
+        return "Falha ao analisar o log com a IA (OpenAI). Verifique o log bruto."
