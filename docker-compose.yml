@@ -7,12 +7,33 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      # Expõe a porta 5002 para o mundo (para os 'vps-log-agent' acessarem)
-      # O seu proxy reverso (Nginx/Traefik) deve apontar helios.pbpmdev.com para esta porta.
       - "5002:5002"
     networks:
-      - helios-net # Mantemos a rede, caso seu Codestral/Ollama esteja em outro container
+      - helios-net
+    depends_on: # Garante que a IA inicie antes do bot
+      - ollama
+
+  ollama: # --- SERVIÇO NOVO ---
+    image: ollama/ollama # Imagem oficial do Ollama
+    container_name: helios-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama # Persiste os modelos baixados
+    networks:
+      - helios-net
+    # Se você tiver uma GPU NVIDIA na sua VPS, descomente as linhas abaixo
+    # para ter performance máxima (requer nvidia-docker toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
 networks:
   helios-net:
     driver: bridge
+
+volumes: # --- NOVO BLOCO ---
+  ollama-data: # Volume para guardar os modelos da IA

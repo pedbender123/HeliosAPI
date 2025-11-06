@@ -1,11 +1,16 @@
 import os
 from openai import OpenAI
 
-# --- MUDANÇA AQUI ---
-# Removemos a configuração de 'base_url' e 'api_key' do Ollama.
-# O cliente agora vai ler a variável 'OPENAI_API_KEY' do ambiente.
-client = OpenAI()
-# A API key será lida automaticamente de os.getenv('OPENAI_API_KEY')
+# --- CORREÇÃO AQUI ---
+# Ler as variáveis do .env para o Codestral local
+CODESTRAL_URL = os.getenv("CODESTRAL_API_URL") # Vem do .env (http://ollama:11434/v1)
+CODESTRAL_KEY = os.getenv("CODESTRAL_API_KEY") # Vem do .env (ollama)
+
+# Configurar o cliente para apontar para o Ollama
+client = OpenAI(
+    base_url=CODESTRAL_URL,
+    api_key=CODESTRAL_KEY
+)
 
 SYSTEM_PROMPT = """
 Você é um Gerente de SRE (Site Reliability Engineering) sênior.
@@ -18,13 +23,16 @@ O relatório deve conter:
 """
 
 def get_error_summary(raw_log: str) -> str:
-    """Usa o GPT-4o-mini para analisar um log de erro e gerar um resumo."""
-    print("Enviando log para análise da OpenAI (GPT-4o-mini)...")
+    """Usa o Codestral local (via Ollama) para analisar um log de erro e gerar um resumo."""
+    
+    # --- CORREÇÃO AQUI ---
+    print(f"Enviando log para análise local (Codestral em {CODESTRAL_URL})...")
+    
     try:
         completion = client.chat.completions.create(
             
-            # --- MUDANÇA AQUI ---
-            model="gpt-4o-mini", # Alterado de "codestral:latest"
+            # --- CORREÇÃO AQUI ---
+            model="codestral:latest", # Apontando para o modelo local
             
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -36,6 +44,6 @@ def get_error_summary(raw_log: str) -> str:
         print("Resumo da IA recebido.")
         return summary
     except Exception as e:
-        # --- MUDANÇA AQUI ---
-        print(f"Falha ao contatar a API da OpenAI: {e}")
-        return "Falha ao analisar o log com a IA (OpenAI). Verifique o log bruto."
+        # --- CORREÇÃO AQUI ---
+        print(f"Falha ao contatar a IA (Codestral em {CODESTRAL_URL}): {e}")
+        return "Falha ao analisar o log com a IA (Codestral). Verifique o log bruto."
