@@ -2,14 +2,14 @@ import os
 from openai import OpenAI
 
 # --- CORREÇÃO AQUI ---
-# Ler as variáveis do .env para o Codestral local
-CODESTRAL_URL = os.getenv("CODESTRAL_API_URL") # Vem do .env (http://ollama:11434/v1)
-CODESTRAL_KEY = os.getenv("CODESTRAL_API_KEY") # Vem do .env (ollama)
+# Ler as variáveis do .env para o Ollama local
+OLLAMA_URL = os.getenv("OLLAMA_API_URL") # Vem do .env (http://ollama:11434/v1)
+OLLAMA_KEY = os.getenv("OLLAMA_API_KEY") # Vem do .env (ollama)
 
 # Configurar o cliente para apontar para o Ollama
 client = OpenAI(
-    base_url=CODESTRAL_URL,
-    api_key=CODESTRAL_KEY
+    base_url=OLLAMA_URL,
+    api_key=OLLAMA_KEY
 )
 
 SYSTEM_PROMPT = """
@@ -23,16 +23,16 @@ O relatório deve conter:
 """
 
 def get_error_summary(raw_log: str) -> str:
-    """Usa o Codestral local (via Ollama) para analisar um log de erro e gerar um resumo."""
+    """Usa o Llama 3 local (via Ollama) para analisar um log de erro e gerar um resumo."""
     
     # --- CORREÇÃO AQUI ---
-    print(f"Enviando log para análise local (Codestral em {CODESTRAL_URL})...")
+    print(f"Enviando log para análise local (Llama 3 em {OLLAMA_URL})...")
     
     try:
         completion = client.chat.completions.create(
             
             # --- CORREÇÃO AQUI ---
-            model="codestral:latest", # Apontando para o modelo local
+            model="llama3", # Apontando para o modelo local
             
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -45,5 +45,5 @@ def get_error_summary(raw_log: str) -> str:
         return summary
     except Exception as e:
         # --- CORREÇÃO AQUI ---
-        print(f"Falha ao contatar a IA (Codestral em {CODESTRAL_URL}): {e}")
-        return "Falha ao analisar o log com a IA (Codestral). Verifique o log bruto."
+        print(f"Falha ao contatar a IA (Llama 3 em {OLLAMA_URL}): {e}")
+        return "Falha ao analisar o log com a IA (Llama 3). Verifique o log bruto."
